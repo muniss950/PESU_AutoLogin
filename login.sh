@@ -1,90 +1,48 @@
 #!/bin/bash
 
-# Get the current hour
-current_hour=$(date +%H)
-current_hour=${current_hour#0}
-
-# Set the URL and password for CIE login
+# Set the URL for CIE login
 cie_login_url="https://192.168.254.1:8090/login.xml"
-cie_password="pesu@2020"
-
-# Set the URL and password for PES1UG19CS login
-pes_login_url="https://192.168.254.1:8090/login.xml"
-pes_password="aryan@012"
 
 # Define ANSI color codes
 green='\033[0;32m'
-yellow='\033[0;33m'
 red='\033[0;31m'
-cyan='\033[0;36m'
 reset='\033[0m' # Reset color
+# sleep 10
+# Execute the command and capture the output and exit status
+command_output=$(warp-cli disconnect 2>&1)
+exit_status=$?
 
-# Function to perform Warp disconnect
-warp_disconnect() {
-    echo -e "${cyan}Disconnecting from Warp...${reset}"
-    warp-cli disconnect >/dev/null
-    echo -e "${cyan}Warp is ${red}Disconnected${reset}"
-}
-
-# Function to perform Warp connect
-warp_connect() {
-    echo -e "${cyan}Connecting to Warp...${reset}"
-    warp-cli connect >/dev/null
-    echo -e "${cyan}Warp is ${green}Connected${reset}"
-}
+# Check if the command was successful
+if [[ $exit_status -eq 0 ]]; then
+	# Check if the output contains "Success" (or any other success message)
+	if [[ "$command_output" == *"Success"* ]]; then
+		dunstify -t 2000 "Success" "Disconnected from Warp successfully."
+	else
+		dunstify -t 2000 "Notice" "Disconnect command executed, but no success message found."
+	fi
+else
+	dunstify "Error" "Failed to disconnect from Warp: $command_output"
+fi
 
 # Function to perform CIE login
 cie_login() {
-    local username="$1"
-    local response=$(curl -k -s -X POST -d "mode=191&username=$username&password=$cie_password&a=1713188925839&producttype=0" -H "Content-Type: application/x-www-form-urlencoded" "$cie_login_url")
-    local message=$(echo "$response" | grep -oP '(?<=<message>).*?(?=</message>)')
+	local username="designathon1"
+	local password="designathon1"
+	local response=$(curl -k -s -X POST -d "mode=191&username=$username&password=$password&a=1713188925839&producttype=0" -H "Content-Type: application/x-www-form-urlencoded" "$cie_login_url")
+	local message=$(echo "$response" | grep -oP '(?<=<message>).*?(?=</message>)')
 
-    if [[ "$message" == "<![CDATA[You are signed in as {username}]]>" ]]; then
-        echo -e "${green}Successfully connected to CIE ID: $username${reset}"  # Print the username
-        warp_connect
-        exit 0
-    else
-        echo -e "${yellow}Trying username $username${reset}"
-    fi
+	# Check for successful login
+	if [[ "$message" == *"You are signed in as"* ]]; then
+		echo -e "${green}Wi-Fi has been connected successfully.${reset}"
+		dunstify -t 3000 "Wi-Fi Connection" "Connected to Wi-Fi successfully!" -u low
+		warp-cli connect
+		echo -e "${green}Warp has been connected successfully.${reset}"
+		dunstify -t 3000 "Warp Connection" "Warp is connected!" -u low
+	else
+		echo -e "${red}Failed to connect to Wi-Fi.${reset}"
+		dunstify -t 3000 "Wi-Fi Connection" "Failed to connect to Wi-Fi." -u critical
+	fi
 }
 
-# Function to perform PES1UG19CS login
-pes_login() {
-    local password="$1"
-
-    # Loop through the provided usernames
-    for username in "PES1UG19CS037" "PES1UG19CS107" "PES1UG19CS109"; do
-        echo -e "${yellow}Trying username $username${reset}"  # Echo "Trying username"
-        # Construct the payload
-        payload="mode=191&username=$username&password=$password&a=1713188925839&producttype=0"
-
-        # Send the POST request
-        response=$(curl -k -s -X POST -d "$payload" -H "Content-Type: application/x-www-form-urlencoded" "$pes_login_url")
-
-        # Extract the relevant information from the response
-        message=$(echo "$response" | grep -oP '(?<=<message>).*?(?=</message>)')
-
-        # Check if the message indicates successful login
-        if [[ "$message" == "<![CDATA[You are signed in as {username}]]>" ]]; then
-            echo -e "${green}Successfully connected to PES1UG19CS ID: $username${reset}"
-            warp_connect
-            exit 0  # Exit the script
-        else
-            echo "" 
-        fi
-    done
-
-    echo -e "${red}Login unsuccessful for all usernames${reset}"
-}
-
-current_day=$(date +%u)
-
-# Check if the current hour is between 8:00 A.M. and 8:00 P.M. and today is Sunday (7)
-if (( current_hour >= 8 && current_hour < 20 )) && (( current_day != 7 )); then
-    for username in {7..60}; do
-        cie_login "CIE$(printf "%02d" $username)"
-    done
-else
-    # Perform PES1UG19CS login
-    pes_login "$pes_password"
-fi
+# Perform CIE login
+cie_login
