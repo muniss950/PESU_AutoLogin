@@ -5,6 +5,7 @@ $pes_password=""#Enter your password
 
 
 
+$preferredNetworks = @("PESU-Element Block", "GJBC_Library", "GJBC","PESU-BH")
 
 
 # Function to get the strongest Wi-Fi network from a given list of network SSIDs
@@ -35,22 +36,29 @@ function Get-StrongestWiFi {
     return $strongestNetwork
 }
 
-# List of preferred SSIDs to check
-$preferredNetworks = @("GJBC_Library", "GJBC", "PESU-Element Block","PESU-BH")
 
 # Get the strongest Wi-Fi network from the preferred list
 $strongestWiFi = Get-StrongestWiFi -PreferredSSIDs $preferredNetworks
 
-# Connect to the strongest Wi-Fi network
-if ($strongestWiFi) {
-    $networkName = $strongestWiFi.SSID
-    Write-Host "Connecting to the strongest Wi-Fi network: $networkName"
 
-    # Connect to the network (assuming the profile already exists)
-    netsh wlan connect name="$networkName"
-} else {
-    Write-Host "No preferred networks found in the available Wi-Fi networks."
-    return
+# Check if any arguments are provided
+if ($args.Count -eq 0) {
+# Get the strongest Wi-Fi network from the preferred list
+    $strongestWiFi = Get-StrongestWiFi -PreferredSSIDs $preferredNetworks
+
+# Connect to the strongest Wi-Fi network
+    if ($strongestWiFi) {
+        $networkName = $strongestWiFi.SSID
+        Write-Host "Connecting to the strongest Wi-Fi network: $networkName"
+
+    } else {
+        Write-Host "No preferred networks found in the available Wi-Fi networks."
+        return
+    }
+}
+else {
+  $networkName=$preferredNetworks[$args]
+  Write-Host "Connecting: $networkName"
 }
 # Function to perform Warp disconnect
 function warp_disconnect {
@@ -144,13 +152,13 @@ function cie_login {
 
 
 #
-# Check if the current hour is between 8:00 A.M. and 8:00 P.M.
-if ($current_hour -ge 8 -and $current_hour -lt 20) {
-    Start-Sleep -Seconds 5
-    for ($username = 7; $username -le 60; $username++) {
-        cie_login "CIE$(("{0:D2}" -f $username))"
-    }
-} else {
+# # Check if the current hour is between 8:00 A.M. and 8:00 P.M.
+# if ($current_hour -ge 8 -and $current_hour -lt 20) {
+#     Start-Sleep -Seconds 5
+#     for ($username = 7; $username -le 60; $username++) {
+#         cie_login "CIE$(("{0:D2}" -f $username))"
+#     }
+# } else {
     # Perform PES1UG19CS login
     pes_login  
-}
+# }
