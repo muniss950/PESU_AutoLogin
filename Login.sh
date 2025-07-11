@@ -1,59 +1,71 @@
 #!/bin/bash
 
-IFS=$'\n'
+# Set your username and password here 
+username=""
+password=""
 
-# Define ANSI color codes
+if [[ -z "$username" || -z "$password" ]]; then
+    echo -e "\033[0;31mUsage: $0 <username> <password>\033[0m"
+    exit 1
+fi
+
+# ===== Define URLs =====
+login_url="https://192.168.254.1:8090/login.xml"
+logout_url="https://192.168.254.1:8090/logout.xml"
+
+# ===== Colors =====
 green='\033[0;32m'
 yellow='\033[0;33m'
 red='\033[0;31m'
-cyan='\033[0;36m'
-reset='\033[0m' # Reset color
-if   [[ (! -e ~/.config/pes_login) || "$(cat ~/.config/pes_login)" == "" ]]; then
-  touch ~/.config/pes_login 
-  echo -n "Enter Your username: "
-  read -r username
-  echo -n "Enter Your password: "
-  read -r password
-  echo "$username"
-  echo "$password"
-  echo $username>>~/.config/pes_login
-  echo $password>>~/.config/pes_login
-fi
+reset='\033[0m'
 
-config=$(cat ~/.config/pes_login)
-# echo "$config"
-read -d EOF -a arr<<< "$config"
-# echo "${arr[@]}"
-username=$(echo "${arr[0]}") 
-password=$(echo "${arr[1]}")
-# echo "$username"
-# echo "$password"
-# Set the URL and password for PES1UG19CS login
-pes_login_url="https://192.168.254.1:8090/login.xml"
-
-if command -v warp-cli>/dev/null; then 
-warp-cli disconnect >/dev/null
-fi
-# Function to perform Warp disconnect
-
-# Function to perform CIE login
+# ===== Login Function =====
 pes_login() {
-    local username="$1"
-    local password"$2"
-    local response=$(curl -k -s -X POST -d "mode=191&username=$username&password=$2&a=1713188925839&producttype=0" -H "Content-Type: application/x-www-form-urlencoded" "$pes_login_url")
-    echo "$response"
+    local a_param=$(date +%s%3N)
+
+    response=$(curl -k -s -X POST "$login_url" \
+        -H 'Content-Type: application/x-www-form-urlencoded' \
+        -H 'Origin: https://192.168.254.1:8090' \
+        -H 'Referer: https://192.168.254.1:8090/httpclient.html' \
+        --data-raw "mode=191&username=$username&password=$password&a=$a_param&producttype=0")
+
     local message=$(echo "$response" | grep -oP '(?<=<message>).*?(?=</message>)')
     echo $message
 
-    if [[ "$message" == "<![CDATA[You are signed in as {username}]]>" ]]; then
-        echo -e "${green}Successfully connected to $username${reset}"  # Print the username
-        exit 0
+    if echo "$message" | grep -qi "signed in"; then
+        echo -e "${green}Successfully connected as $username${reset}"
     else
-        echo -e "${yellow}Trying username $username${reset}"
+        echo -e "${red}Login failed. Message: $message${reset}"
     fi
 }
-pes_login $username $password
-if command -v warp-cli>/dev/null && [[ $1 == "-w" ]]; then 
-  echo "Connecting to warp"
-warp-cli connect   >/dev/null 
-fi
+
+# ===== Logout Function =====
+pes_logout() {
+    local a_param=$(date +%s%3N)
+
+    response=$(curl -k -s -X POST "$logout_url" \
+        -H 'Content-Type: application/x-www-form-urlencoded' \
+        -H 'Origin: https://192.168.254.1:8090' \
+        -H 'Referer: https://192.168.254.1:8090/httpclient.html' \
+        --data-raw "mode=193&username=$username&a=$a_param&producttype=0")
+
+    local message=$(echo "$response" | grep -oP '(?<=<message>).*?(?=</message>)')
+    echo $message
+
+    if echo "$message" | grep -qi "signed out"; then
+        echo -e "${green}Successfully logged out $username${reset}"
+    else
+        echo -e "${red}Logout failed. Message: $message${reset}"
+    fi
+}
+
+# ===== Call Functions Here =====
+# Example:
+if [[ $1 == "out" ]] then 
+    echo "Loggin out"
+    pes_logout
+else 
+  echo "Logging in"
+  pes_login
+fi 
+# pes_logout

@@ -22,9 +22,15 @@ This repository contains a script designed for automated login into PES-Universi
    ```
 
 ## Usage
-1. In linux
+1. In linux 
+- Setup your profile by entering username and password in the bash code
+- Login: 
 ```bash
    pesu
+```
+- Logout:
+```bash
+   pesu out
 ```
 2. In windows:
 ```powershell
